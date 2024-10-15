@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory System Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7f9fc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            max-width: 700px;
+            width: 100%;
+            margin: 20px auto;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: calc(100% - 12px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            border-color: #007BFF;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #results h2 {
+            margin-top: 40px;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        td {
+            background-color: #f9f9f9;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #f2f2f2;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                width: 90%;
+                padding: 15px;
+            }
+
+            input, button {
+                width: 100%;
+            }
+
+            table {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Inventory System Simulation</h1>
+        <div>
+            <label for="initialInventory">Initial Inventory:</label>
+            <input type="number" id="initialInventory" value="18">
+            <label for="reorderPoint">Reorder Point:</label>
+            <input type="number" id="reorderPoint" value="10">
+            <label for="orderSize">Order Size (20 - I):</label>
+            <input type="number" id="orderSize" value="20" disabled>
+            <label for="demandMean">Daily Demand Mean:</label>
+            <input type="number" id="demandMean" value="5">
+            <label for="demandStdDev">Daily Demand Std Dev:</label>
+            <input type="number" id="demandStdDev" value="1.5">
+            <label for="leadTimeMin">Lead Time Min (days):</label>
+            <input type="number" id="leadTimeMin" value="1">
+            <label for="leadTimeMax">Lead Time Max (days):</label>
+            <input type="number" id="leadTimeMax" value="5">
+            <label for="simulationWeeks">Simulation Weeks:</label>
+            <input type="number" id="simulationWeeks" value="5">
+            <button onclick="runSimulation()">Run Simulation</button>
+        </div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function runSimulation() {
+            const initialInventory = parseInt(document.getElementById('initialInventory').value);
+            const reorderPoint = parseInt(document.getElementById('reorderPoint').value);
+            const demandMean = parseFloat(document.getElementById('demandMean').value);
+            const demandStdDev = parseFloat(document.getElementById('demandStdDev').value);
+            const leadTimeMin = parseInt(document.getElementById('leadTimeMin').value);
+            const leadTimeMax = parseInt(document.getElementById('leadTimeMax').value);
+            const simulationWeeks = parseInt(document.getElementById('simulationWeeks').value);
+
+            let inventory = initialInventory;
+            let outstandingOrder = null;
+            let lostSales = 0;
+            let results = [];
+
+            for (let week = 1; week <= simulationWeeks; week++) {
+                for (let day = 1; day <= 5; day++) {
+                    let demandRandom = Math.random();
+                    // demand calculation
+                    let demand = Math.round(Math.max(0, demandMean + demandStdDev * demandRandom));
+
+                    // Process demand
+                    let beginInventory = inventory;
+                    if (demand <= inventory) {
+                        inventory -= demand;
+                    } else {
+                        lostSales += demand - inventory;
+                        inventory = 0;
+                    }
+
+                    // Check for order arrival
+                    let orderArrived = false;
+                    if (outstandingOrder && outstandingOrder.daysUntilArrival === 0) {
+                        inventory += outstandingOrder.quantity;
+                        outstandingOrder = null;
+                        orderArrived = true;
+                    }
+
+                    // Place order if needed
+                    let leadTimeRandom = null;
+                    let leadTime = null;
+                    if (inventory < reorderPoint && !outstandingOrder) {
+                        const orderQuantity = 20 - inventory;
+                        leadTimeRandom = Math.random();
+                        leadTime = Math.floor(leadTimeRandom * (leadTimeMax - leadTimeMin + 1)) + leadTimeMin;
+                        outstandingOrder = {
+                            quantity: orderQuantity,
+                            daysUntilArrival: leadTime
+                        };
+                    }
+
+                    // Record daily results
+                    results.push({
+                        week,
+                        day,
+                        beginInventory,
+                        demandRandom: demandRandom.toFixed(2),
+                        demand,
+                        endInventory: inventory,
+                        orderPlaced: outstandingOrder && outstandingOrder.daysUntilArrival === leadTime ? outstandingOrder.quantity : 0,
+                        leadTimeRandom: leadTimeRandom ? leadTimeRandom.toFixed(2) : '',
+                        leadTime: leadTime !== null ? leadTime : '',
+                        daysUntilArrival: outstandingOrder ? outstandingOrder.daysUntilArrival : '',
+                        lostSales: demand > beginInventory ? demand - beginInventory : 0,
+                        orderArrived: orderArrived ? 'Yes' : ''
+                    });
+
+                    // Update days until arrival
+                    if (outstandingOrder) {
+                        outstandingOrder.daysUntilArrival--;
+                    }
+                }
+            }
+
+            displayResults(results, lostSales / simulationWeeks);
+        }
+
+        function displayResults(results, avgLostSales) {
+            let html = `<h2>Simulation Results</h2>
+                        <p>Average Lost Sales per Week: ${avgLostSales.toFixed(2)}</p>
+                        <table>
+                            <tr>
+                                <th>Week</th>
+                                <th>Day</th>
+                                <th>Begin Inventory</th>
+                                <th>Demand RN</th>
+                                <th>Demand</th>
+                                <th>End Inventory</th>
+                                <th>Order Placed</th>
+                                <th>Lead Time RN</th>
+                                <th>Lead Time</th>
+                                <th>Days Until Arrival</th>
+                                <th>Lost Sales</th>
+                                <th>Order Arrived</th>
+                            </tr>`;
+
+            results.forEach(row => {
+                html += `<tr>
+                            <td>${row.week}</td>
+                            <td>${row.day}</td>
+                            <td>${row.beginInventory}</td>
+                            <td>${row.demandRandom}</td>
+                            <td>${row.demand}</td>
+                            <td>${row.endInventory}</td>
+                            <td>${row.orderPlaced}</td>
+                            <td>${row.leadTimeRandom}</td>
+                            <td>${row.leadTime}</td>
+                            <td>${row.daysUntilArrival}</td>
+                            <td>${row.lostSales}</td>
+                            <td>${row.orderArrived}</td>
+                         </tr>`;
+            });
+
+            html += '</table>';
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
